@@ -37,4 +37,30 @@ data <- data %>%
 
 data$rsa_estimate <- as.numeric(data$Q32_BR)
 
-freq(data$rsa_estimate) # 20% N.A 
+freq(data$rsa_estimate) # 20% N.A (need to check if missing years !)
+
+# Today, the RSA for a single person who does not work is around XXXX euros a month. Which of these opinions do you agree with most?
+
+freq(data$Q35)
+
+data <- data %>%
+  mutate(
+    increase_rsa = case_when(
+      Q35 == 1 ~ 3,
+      Q35 == 3 ~ 2,
+      Q35 == 2 ~ 1,  
+      Q35 == 4 ~ NA_real_)
+  )
+
+freq(data$increase_rsa) #1: Decrease / 2: Maintain / 3: Increase
+
+
+#B) Control variables 
+
+# There are too many immigrant workers 
+
+freq(data$Q13_2)
+
+data <- data %>% mutate(xenophobia = ifelse(Q13_2 == 3, NA, 3 - Q13_2))
+
+freq(data$xenophobia)
