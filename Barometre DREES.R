@@ -9,6 +9,7 @@ library(tidyverse)
 library(summarytools) 
 library(stargazer)    
 library(plm)
+library(sandwich)
 
 #I) Dataset 
 
@@ -63,7 +64,11 @@ freq(data$Q13_2)
 
 data <- data %>% mutate(xenophobia = ifelse(Q13_2 == 3, NA, 3 - Q13_2))
 
-freq(data$xenophobia)
+data <- data %>%
+  mutate(Xenophobia = ifelse(xenophobia == 2, 1,
+                      ifelse(!is.na(xenophobia), 0, NA)))
+
+freq(data$Xenophobia)
 
 # Shift-share IV / à la Bartik
 
@@ -184,16 +189,49 @@ data <- data %>%
 
 freq(data$IncomeBrackets)
 
+# Year 
+
+data$Year <- as.factor(data$ANNEE)
+
+freq(data$Year)
+
 #III) Regression Analysis
 
-ols <- lm(pmore_health_insurance ~ xenophobia, data = data)
-ols2 <- lm(pmore_pension ~ xenophobia, data = data)
-ols3 <- lm(pmore_family  ~ xenophobia, data = data)
-ols4 <- lm(pmore_unemployed  ~ xenophobia, data = data)
-ols5 <- lm(pmore_disabled  ~ xenophobia, data = data)
-ols6 <- lm(pmore_dependent ~ xenophobia, data = data )
+ols <- lm(pmore_health_insurance ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+          + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
+ols2 <- lm(pmore_pension ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
+ols3 <- lm(pmore_family  ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
+ols4 <- lm(pmore_unemployed  ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
+ols5 <- lm(pmore_disabled  ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
+ols6 <- lm(pmore_dependent ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
+
+ols7 <- lm(increase_rsa ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
+
+
+se_ols <- sqrt(diag(vcovHC(ols, type = "HC1")))
+se_ols2 <- sqrt(diag(vcovHC(ols2, type = "HC1")))
+se_ols3 <- sqrt(diag(vcovHC(ols3, type = "HC1")))
+se_ols4 <- sqrt(diag(vcovHC(ols4, type = "HC1")))
+se_ols5 <- sqrt(diag(vcovHC(ols5, type = "HC1")))
+se_ols6 <- sqrt(diag(vcovHC(ols6, type = "HC1")))
+
+se_ols7 <- sqrt(diag(vcovHC(ols7, type = "HC1")))
+se_ols8 <- sqrt(diag(vcovHC(ols8, type = "HC1")))
 
 stargazer(
   ols, ols2, ols3, ols4, ols5, ols6,
+  se = list(se_ols, se_ols2, se_ols3, se_ols4, se_ols5, se_ols6),
+  type = "text"
+)
+
+stargazer(
+  ols7,
+  se = list(se_ols7),
   type = "text"
 )
