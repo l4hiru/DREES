@@ -55,7 +55,7 @@ data <- data %>%
 freq(data$increase_rsa) #1: Decrease / 2: Maintain / 3: Increase
 
 
-#B) Control variables 
+#B) Explanatory variables
 
 # There are too many immigrant workers 
 
@@ -64,3 +64,136 @@ freq(data$Q13_2)
 data <- data %>% mutate(xenophobia = ifelse(Q13_2 == 3, NA, 3 - Q13_2))
 
 freq(data$xenophobia)
+
+# Shift-share IV / à la Bartik
+
+#C) Control variables 
+
+# Gender 
+
+freq(data$SEXE)
+
+data$Women <- ifelse(data$SEXE == 2, 1, 0)
+
+# Age
+
+freq(data$AGE_BR)
+
+data$Age <- as.numeric(data$AGE_BR)
+
+# Marital Status
+
+freq(data$SITFAM)
+
+data <- data %>%
+  mutate(Married = case_when(
+    SITFAM == 1 ~ 1,
+    SITFAM %in% c(2, 3, 4) ~ 0,
+  ))
+
+freq(data$Married)
+
+# Diploma 
+
+freq(data$Q111)
+
+data <- data %>%
+  mutate(Diploma = case_when(
+    Q111 %in% c(1, 2) ~ "Low",
+    Q111 %in% c(3, 4) ~ "Medium",
+    Q111 %in% c(5, 6, 7, 8) ~ "High",
+    TRUE ~ NA_character_
+  ),
+  Diploma = factor(Diploma, levels = c("Low", "Medium", "High")))
+
+freq(data$Diploma)
+
+# Occupation
+
+freq(data$PPI)
+
+data <- data %>%
+  mutate(Occupation = case_when(
+    PPI %in% c(1) ~ "Farmer",
+    PPI %in% c(2) ~ "Craftmen",
+    PPI %in% c(3) ~ "Executive",
+    PPI %in% c(4) ~ "PI",
+    PPI %in% c(5) ~ "Employee",
+    PPI %in% c(6) ~ "Worker",
+    PPI %in% c(7) ~ "Unemployed",
+    PPI %in% c(8) ~ "Pensioner",
+    PPI %in% c(9) ~ "Inactive",
+    PPI %in% c(10) ~ "Inactive",
+    TRUE ~ NA_character_
+  ),
+  Occupation = relevel(factor(Occupation), ref = "Worker"))
+
+freq(data$Occupation)
+
+# Employment
+
+freq(data$STATUTPPIbis)
+
+data <- data %>%
+  mutate(Employment = case_when(
+    STATUTPPIbis == 1 ~ "Public",
+    STATUTPPIbis == 2 ~ "Private",
+    STATUTPPIbis == 3 ~ "Independent",
+    STATUTPPIbis == 4 ~ "Employer",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(Employment = factor(Employment, levels = c("Public", "Private", "Independent", "Employer")))
+
+freq(data$Employment) #45% de N.A ! 
+
+data <- data %>%
+  mutate(
+    Public      = ifelse(STATUTPPIbis == 1, 1, 0),
+    Private     = ifelse(STATUTPPIbis == 2, 1, 0),
+    Independent = ifelse(STATUTPPIbis == 3, 1, 0),
+    Boss        = ifelse(STATUTPPIbis == 4, 1, 0)
+  )
+
+freq(data$Public)
+
+# Unioner
+
+data <- data %>%
+  mutate(Unioner = case_when(
+    Q103_1 == 1 ~ 1,
+    Q103_1 == 2 ~ 0,
+  ))
+
+# Income Brackets
+
+freq(data$Q110BIS)
+
+data <- data %>%
+  mutate(IncomeBrackets = ifelse(Q110BIS == 8, NA, Q110BIS)) %>%
+  mutate(IncomeBrackets = factor(IncomeBrackets,
+                                 levels = 1:7,
+                                 labels = c(
+                                   "Moins de 1000€",
+                                   "1000–1499€",
+                                   "1400–1900€",
+                                   "1900–2400€",
+                                   "2400–3800€",
+                                   "3800–5300€",
+                                   "5300€ et plus"))) %>%
+  mutate(IncomeBrackets = relevel(IncomeBrackets, ref = "Moins de 1000€"))
+
+freq(data$IncomeBrackets)
+
+#III) Regression Analysis
+
+ols <- lm(pmore_health_insurance ~ xenophobia, data = data)
+ols2 <- lm(pmore_pension ~ xenophobia, data = data)
+ols3 <- lm(pmore_family  ~ xenophobia, data = data)
+ols4 <- lm(pmore_unemployed  ~ xenophobia, data = data)
+ols5 <- lm(pmore_disabled  ~ xenophobia, data = data)
+ols6 <- lm(pmore_dependent ~ xenophobia, data = data )
+
+stargazer(
+  ols, ols2, ols3, ols4, ols5, ols6,
+  type = "text"
+)
