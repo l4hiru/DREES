@@ -10,6 +10,9 @@ library(summarytools)
 library(stargazer)    
 library(plm)
 library(sandwich)
+library(MASS)
+library(erer)
+library(DescTools)
 
 #I) Dataset 
 
@@ -195,7 +198,9 @@ data$Year <- as.factor(data$ANNEE)
 
 freq(data$Year)
 
-#III) Regression Analysis
+#III) Regression Analysis$
+
+# OLS
 
 ols <- lm(pmore_health_insurance ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
           + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
@@ -222,7 +227,6 @@ se_ols5 <- sqrt(diag(vcovHC(ols5, type = "HC1")))
 se_ols6 <- sqrt(diag(vcovHC(ols6, type = "HC1")))
 
 se_ols7 <- sqrt(diag(vcovHC(ols7, type = "HC1")))
-se_ols8 <- sqrt(diag(vcovHC(ols8, type = "HC1")))
 
 stargazer(
   ols, ols2, ols3, ols4, ols5, ols6,
@@ -235,3 +239,77 @@ stargazer(
   se = list(se_ols7),
   type = "text"
 )
+
+# Ordered Logit Models
+
+data <- data %>%
+  mutate(
+    pmore_health_insurance_ordered = factor(pmore_health_insurance,
+                                            levels = c(1, 2, 3, 4),
+                                            ordered = TRUE),
+    pmore_pension_ordered = factor(pmore_pension,
+                                   levels = c(1, 2, 3, 4),
+                                   ordered = TRUE),
+    pmore_family_ordered = factor(pmore_family,
+                                  levels = c(1, 2, 3, 4),
+                                  ordered = TRUE),
+    pmore_unemployed_ordered = factor(pmore_unemployed,
+                                      levels = c(1, 2, 3, 4),
+                                      ordered = TRUE),
+    increase_rsa_ordered = factor(increase_rsa,
+                                      levels = c(1, 2, 3),
+                                      ordered = TRUE)
+  )
+
+freq(data$pmore_health_insurance_ordered)
+
+logit_ord1 <- polr(pmore_health_insurance_ordered ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data, method = "logistic")
+
+logit_ord2 <- polr(pmore_pension_ordered ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data, method = "logistic")
+
+logit_ord3 <- polr(pmore_family_ordered ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data, method = "logistic")
+
+logit_ord4 <- polr(pmore_unemployed_ordered ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data, method = "logistic")
+
+logit_ord5 <- polr(increase_rsa_ordered ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
+  + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data, method = "logistic")
+
+stargazer(logit_ord1, type = "text")
+
+x1 <- ocME(logit_ord1)
+x1$out
+stargazer(x1$out$ME.1, type = "text")
+
+x2 <- ocME(logit_ord2)
+x2$out
+stargazer(x2$out$ME.1, type = "text")
+
+x3 <- ocME(logit_ord3)
+x3$out
+stargazer(x3$out$ME.1, type = "text")
+
+x4 <- ocME(logit_ord4)
+x4$out
+stargazer(x4$out$ME.1, type = "text")
+
+x5 <- ocME(logit_ord5)
+x5$out
+stargazer(x4$out$ME.1, type = "text")
+
+stargazer(
+  x1$out$ME.1,
+  x2$out$ME.1,
+  x3$out$ME.1,
+  x4$out$ME.1,
+  type = "text"
+)
+
+PseudoR2(logit_ord1, which = "CoxSnell")
+PseudoR2(logit_ord2, which = "CoxSnell")
+PseudoR2(logit_ord3, which = "CoxSnell")
+PseudoR2(logit_ord4, which = "CoxSnell")
+PseudoR2(logit_ord5, which = "CoxSnell")
