@@ -13,6 +13,7 @@ library(sandwich)
 library(MASS)
 library(erer)
 library(DescTools)
+library(flexmix)
 
 #I) Dataset 
 
@@ -278,7 +279,8 @@ logit_ord4 <- polr(pmore_unemployed_ordered ~ Xenophobia + Women + Age + Married
 logit_ord5 <- polr(increase_rsa_ordered ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
   + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data, method = "logistic")
 
-stargazer(logit_ord1, type = "text")
+stargazer(logit_ord4, type = "text")
+summary(data$pmore_pension)
 
 x1 <- ocME(logit_ord1)
 x1$out
@@ -298,7 +300,7 @@ stargazer(x4$out$ME.1, type = "text")
 
 x5 <- ocME(logit_ord5)
 x5$out
-stargazer(x4$out$ME.1, type = "text")
+stargazer(x5$out$ME.1, type = "text")
 
 stargazer(
   x1$out$ME.1,
@@ -313,3 +315,87 @@ PseudoR2(logit_ord2, which = "CoxSnell")
 PseudoR2(logit_ord3, which = "CoxSnell")
 PseudoR2(logit_ord4, which = "CoxSnell")
 PseudoR2(logit_ord5, which = "CoxSnell")
+
+data_clean <- data[, c("pmore_unemployed", "Xenophobia", "Women", "Age", "Married", "Diploma",
+                "Occupation", "Public", "Private", "Independent", "Boss",
+                "IncomeBrackets", "Unioner", "Year")]  
+
+data_clean <- na.omit(data_clean)
+
+blindmodel <- stepFlexmix(pmore_unemployed ~ Xenophobia,
+  k = c(1, 2, 3, 4, 5),
+  nrep = 10,
+  data = data_clean,
+  control = list(iter.max = 500))
+
+blindmodel
+plot(blindmodel) 
+
+bestmodel <- getModel(blindmodel, which = 2) 
+summary(bestmodel) 
+parameters(bestmodel)
+summary(refit(bestmodel)) 
+
+summary(data_clean$Xenophobia)
+tapply(data_clean$Xenophobia, data_clean$pmore_unemployed, var)
+
+data_clean$Xeno_std <- scale(data_clean$Xenophobia)
+summary(data_clean$Xeno_std)
+bestmodel <- stepFlexmix(pmore_unemployed ~ Xeno_std, data = data_clean, 
+                         control = list(iter.max = 500), k = 4, nrep = 10)
+
+blindmodel <- stepFlexmix(pmore_unemployed ~ Xeno_std,
+  k = c(1, 2, 3, 4, 5),
+  nrep = 10,
+  data = data_clean,
+  control = list(iter.max = 500))
+
+
+car::vif(lm(pmore_health_insurance ~ Xenophobia + Women + Age + Married + Diploma + 
+  Occupation + Public + Private + Independent + Boss + IncomeBrackets + Unioner + 
+  Year, data = data_clean))
+
+library(mixtools)
+
+fit <- regmixEM(y = data_clean$pmore_health_insurance,
+  x = data_clean[, c("Xenophobia", "Women", "Age", "Married", 
+              "Diploma", "Occupation", "IncomeBrackets", 
+              "Unioner", "Year")],
+  k = 2)
+
+
+install.packages("RobMixReg")
+
+library(RobMixReg)
+
+m1 <- lm(pmore_unemployed ~ Xenophobia, data = data_clean)
+
+
+mixfit(m1, ncomp = 2)
+
+mixfit()
+
+
+
+fit <- MLM(
+  formula = pmore_unemployed ~ Xenophobia + Women + Age + Married + Diploma +  
+            Occupation + IncomeBrackets + Unioner + Year,
+  nc = 2,       # Number of components
+  x = x, 
+  y = y, 
+)
+
+y <- data_clean$pmore_unemployed
+x <- data_clean[, c("Xenophobia", "Women", "Age", "Married", "Diploma", 
+                    "Occupation", "Public", "Private", "Independent", "Boss",
+                    "IncomeBrackets", "Unioner", "Year")]
+
+ data_clean$Married <- as.factor(data_clean$Married)
+data_clean$Occupation <- as.factor(data_clean$Occupation)
+data_clean$Public <- as.factor(data_clean$Public)
+data_clean$Private <- as.factor(data_clean$Private)
+data_clean$Independent <- as.factor(data_clean$Independent)
+data_clean$Boss <- as.factor(data_clean$Boss)
+data_clean$IncomeBrackets <- as.factor(data_clean$IncomeBrackets)
+data_clean$Unioner <- as.factor(data_clean$Unioner)
+data_clean$Year <- as.factor(data_clean$Year)
