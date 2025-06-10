@@ -17,13 +17,190 @@ library(flexmix)
 
 #I) Dataset 
 
-data <- read.csv2("Base 2000 - 2013/Csv/barodrees_unif00_13v8.csv") # Unified dataset 2000 - 2013
+# data <- read.csv2("Base 2000 - 2013/Csv/barodrees_unif00_13v8.csv") # Unified dataset 2000 - 2013
 
-table(data$DEPT, data$ANNEE) # Missing for 2007 - 2012 waves
+data <- read_dta("2023/barometre2000_2023_diff.dta") # Unified dataset 2000 - 2023
 
 #II) Variables 
 
 #A) Outcome variables
+
+# Would you accept a reduction ... in exchange for a reduction in your taxes or payroll taxes ?
+
+data <- data %>%
+  mutate(
+    pless_health_insurance = ifelse(ps13_ab_1 %in% c(5, 999999999), NA, 5 - ps13_ab_1), # Health Insurance 
+    pless_pension          = ifelse(ps13_ab_2 %in% c(5, 999999999), NA, 5 - ps13_ab_2), # Pension allowances
+    pless_family           = ifelse(ps13_ab_3 %in% c(5, 999999999), NA, 5 - ps13_ab_3), # Family allowances
+    pless_unemployed       = ifelse(ps13_ab_4 %in% c(5, 999999999), NA, 5 - ps13_ab_4), # Unemployment benefits
+    pless_disabled         = ifelse(ps13_ab_5 %in% c(5, 999999999), NA, 5 - ps13_ab_5), # Help for disabled (no obs between 2000 - 2002) / 2004 according DREES 2013
+    pless_dependent        = ifelse(ps13_ab_6 %in% c(5, 999999999), NA, 5 - ps13_ab_6),  # Help for dependent elderly people (no obs between 2000 - 2002) / 2004 according DREES 2013
+    pless_housing          = ifelse(ps13_ab_7 %in% c(5, 999999999), NA, 5 - ps13_ab_7), # Housing benefits (since 2015 accoring to DREES 2023)
+  )                                                             
+                                                                # 1: Not at all vs. 4: Fully Agree
+
+# Today, the RSA for a single person who does not work is around XXXX euros a month. Which of these opinions do you agree with most?
+
+freq(data$pe09)
+
+data <- data %>%
+  mutate(
+    increase_rsa = case_when(
+      pe09 == 1 ~ 3,
+      pe09 == 3 ~ 2,
+      pe09 == 2 ~ 1,  
+      pe09 == 999999999 ~ NA_real_)
+  )
+
+freq(data$increase_rsa)
+
+# France devotes around a third of its national income to financing social protection. Do you consider this to be ... ?
+
+freq(data$ps03)
+
+data <- data %>%
+  mutate(
+    toomuchTforPS = case_when(
+      ps03 == 1 ~ 3,
+      ps03 == 2 ~ 2,
+      ps03 == 3 ~ 1,  
+      ps03 == 999999999 ~ NA_real_)
+  )
+
+freq(data$toomuchTforPS)
+
+#B) Explanatory variables
+
+freq(data$og08_1)
+
+data <- data %>%
+  mutate(
+    xenophobia = case_when(
+      annee <= 2013 & og08_1 %in% c(2, 3) ~ og08_1,
+      annee >= 2014 & og08_1 %in% c(1, 2) ~ 2,
+      annee >= 2014 & og08_1 %in% c(3, 4) ~ 3,
+      og08_1 == 999999999 | is.na(og08_1) ~ NA_real_,
+      TRUE ~ NA_real_
+    ))                            # 4-points Likert scale is only since 2014 and onwards
+
+data$xenophobia <- ifelse(data$xenophobia == 2, 1, 0)
+
+freq(data$xenophobia)
+
+#C) Control variables
+
+# Gender
+
+freq(data$sdsexe)
+
+data$women <- ifelse(data$sdsexe == 2, 1, 0)
+
+# Age
+
+freq(data$sdage)
+
+data$age <- as.numeric(data$sdage)
+
+# Married
+
+freq(data$sdmatri)
+
+data$married <- ifelse(data$sdmatri == 1, 1, 0) # Include also civil union and cohabitation 
+
+# Diploma 
+
+freq(data$sddipl)
+
+data <- data %>%
+  mutate(diploma = case_when(
+    sddipl %in% c(1, 2) ~ "low",
+    sddipl %in% c(3, 4) ~ "medium",
+    sddipl %in% c(5, 6, 7, 8) ~ "high",
+    TRUE ~ NA_character_
+  ),
+  diploma = factor(diploma, levels = c("low", "medium", "high")))
+
+freq(data$diploma)
+
+# Occupation 
+
+freq(data$sdpcs10)
+
+data <- data %>%
+  mutate(occupation = case_when(
+    sdpcs10 %in% c(1) ~ "farmer",
+    sdpcs10 %in% c(2) ~ "craftmen",
+    sdpcs10 %in% c(3) ~ "executive",
+    sdpcs10 %in% c(4) ~ "pi",
+    sdpcs10 %in% c(5) ~ "employee",
+    sdpcs10 %in% c(6) ~ "worker",
+    sdpcs10 %in% c(7) ~ "unemployed",
+    sdpcs10 %in% c(8) ~ "pensioner",
+    sdpcs10 %in% c(9) ~ "inactive",
+    sdpcs10 %in% c(10) ~ "inactive",
+    TRUE ~ NA_character_
+  ),
+  occupation = relevel(factor(occupation), ref = "worker"))
+
+freq(data$occupation)
+
+# Employment
+
+# Unioner
+
+freq(data$sdassynd_1)
+
+data <- data %>%
+  mutate(unioner = case_when(
+    sdassynd_1 == 1 ~ 1,
+    sdassynd_1 == 2 ~ 0,
+    TRUE ~ NA_real_
+  ))
+
+freq(data$unioner)
+
+# Income Brackets 
+
+freq(data$sdrevtr)
+
+table(data$sdrevtr, data$annee)
+
+data <- data %>%
+  mutate(income = ifelse(sdrevtr == 8, NA, sdrevtr)) %>%
+  mutate(income = factor(income,
+                                 levels = 1:7,
+                                 labels = c(
+                                   "moins de 1000€",
+                                   "1000–1400€",
+                                   "1400–1900€",
+                                   "1900–2400€",
+                                   "2400–3800€",
+                                   "3800–5300€",
+                                   "5300€ et plus"))) %>%
+  mutate(income = relevel(income, ref = "moins de 1000€"))
+
+freq(data$income)
+
+# Year 
+
+data$year <- as.factor(data$annee)
+
+freq(data$year)
+
+
+
+ols_unemployed <- lm(pless_unemployed ~ Xenophobia, data = data)
+ols_health_insurance <- lm(pless_health_insurance ~ Xenophobia, data = data)
+ols_family <- lm(pless_family ~ Xenophobia, data = data)
+ols_disabled <- lm(pless_disabled ~ Xenophobia, data = data)
+ols_dependent <- lm(pless_dependent ~ Xenophobia, data = data)
+ols_housing <- lm(pless_housing ~ Xenophobia, data = data)
+ols_pension <- lm(pless_pension ~ Xenophobia, data = data)
+
+
+stargazer(ols_pension, type = "text")
+
+# -------------------- 1st UNIFIED DATASET (2000 - 2013) --------------------
 
 # In the future, given your level of resources,  would you be prepared to CONTRIBUTE MORE to maintain the level of benefits?
 
@@ -201,7 +378,7 @@ freq(data$Year)
 
 #III) Regression Analysis$
 
-# OLS
+# A) Linear Regression Models
 
 ols <- lm(pmore_health_insurance ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
           + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data)
@@ -241,7 +418,7 @@ stargazer(
   type = "text"
 )
 
-# Ordered Logit Models
+# B) Ordered Logit Models
 
 data <- data %>%
   mutate(
@@ -261,8 +438,6 @@ data <- data %>%
                                       levels = c(1, 2, 3),
                                       ordered = TRUE)
   )
-
-freq(data$pmore_health_insurance_ordered)
 
 logit_ord1 <- polr(pmore_health_insurance_ordered ~ Xenophobia + Women + Age + Married + Diploma + Occupation 
   + Public + Private + Independent + Boss + IncomeBrackets + Unioner + Year, data = data, method = "logistic")
@@ -315,6 +490,16 @@ PseudoR2(logit_ord2, which = "CoxSnell")
 PseudoR2(logit_ord3, which = "CoxSnell")
 PseudoR2(logit_ord4, which = "CoxSnell")
 PseudoR2(logit_ord5, which = "CoxSnell")
+
+
+
+
+
+
+
+
+
+#C) Finite Mixture Regression Models (Attempts)
 
 data_clean <- data[, c("pmore_unemployed", "Xenophobia", "Women", "Age", "Married", "Diploma",
                 "Occupation", "Public", "Private", "Independent", "Boss",
