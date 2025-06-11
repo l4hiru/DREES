@@ -47,7 +47,7 @@ data <- data %>%
 freq(data$pless_health_insurance) # 2017 - 2023 
 table(data$pless_health_insurance, data$annee) # 2017 - 2023 
 
-freq(data00_16$ps13_1)
+freq(data00_16$ps13_1) # Include 2000 - 2016 waves
 
 data00_16 <- data00_16 %>%
   mutate(
@@ -75,7 +75,6 @@ head(data00_16$ident, 10)
 data00_16 <- data00_16 %>%
   mutate(ident_harmonized = paste0("ID_", ident))
 
-# Mettre à jour les variables pless_ dans data avec celles de data00_16 pour 2000-2016
 data <- data %>%
   left_join(
     data00_16 %>% dplyr::select(ident_harmonized, annee, starts_with("pless_")),
@@ -83,7 +82,6 @@ data <- data %>%
     suffix = c("", "_update")
   ) %>%
   mutate(
-    # Remplacer les valeurs pour la période 2000-2016 si elles existent dans data00_16
     pless_health_insurance = case_when(
       !is.na(pless_health_insurance_update) ~ pless_health_insurance_update,
       TRUE ~ pless_health_insurance
@@ -113,10 +111,9 @@ data <- data %>%
       TRUE ~ pless_housing
     )
   ) %>%
-  # Supprimer les colonnes temporaires
   dplyr::select(-ends_with("_update"))
 
-table(data$pless_health_insurance, data$annee) # Seems to have worked but high N.As sometimes
+table(data$pless_health_insurance, data$annee) # Merging seems to have worked but high NAs rate (additional checking needed)
 
 # Today, the RSA for a single person who does not work is around XXXX euros a month. Which of these opinions do you agree with most?
 
@@ -124,7 +121,7 @@ freq(data$pe09)
 
 data <- data %>%
   mutate(
-    increasersa = case_when(
+    increase_rsa = case_when(
       pe09 == 1 ~ 3,
       pe09 == 3 ~ 2,
       pe09 == 2 ~ 1,  
@@ -152,15 +149,16 @@ freq(data$toomuchTforPS)
 
 freq(data$og08_1)
 
-data <- data %>%
-  mutate(
-    xenophobia = case_when(
-      annee <= 2013 & og08_1 %in% c(2, 3) ~ og08_1,
-      annee >= 2014 & og08_1 %in% c(1, 2) ~ 2,
-      annee >= 2014 & og08_1 %in% c(3, 4) ~ 3,
-      og08_1 == 999999999 | is.na(og08_1) ~ NA_real_,
-      TRUE ~ NA_real_
-    ))                            # 4-points Likert scale is only since 2014 and onwards
+data <- data %>%   
+  mutate(     
+    xenophobia = case_when(       
+      as.numeric(as.character(annee)) <= 2013 & og08_1 %in% c(2, 3) ~ og08_1,       
+      as.numeric(as.character(annee)) >= 2014 & og08_1 %in% c(1, 2) ~ 2,       
+      as.numeric(as.character(annee)) >= 2014 & og08_1 %in% c(3, 4) ~ 3,       
+      og08_1 == 999999999 | is.na(og08_1) ~ NA_real_,       
+      TRUE ~ NA_real_     
+    )
+  )                        # 4-points Likert scale is only since 2014 and onwards
 
 data$xenophobia <- ifelse(data$xenophobia == 2, 1, 0)
 
@@ -266,18 +264,73 @@ data$year <- as.factor(data$annee)
 
 freq(data$year)
 
+#III) Regression Analysis
+
+# A) Linear Regression Models
+
+data_reg <- data %>%
+  dplyr::select(
+    pless_health_insurance,
+    pless_pension,
+    pless_family,
+    pless_unemployed,
+    pless_disabled,
+    pless_dependent,
+    pless_housing,
+    increasersa,
+    increase_rsa,
+    toomuchTforPS,
+    xenophobia,
+    women,
+    age,
+    married,
+    diploma,
+    occupation,
+    unioner,
+    income,
+    year, 
+    poids
+  )
+
+ols_1 <- lm(pless_unemployed ~ xenophobia + women + age + married +
+                                        diploma + occupation + unioner + income + year, data = data_reg)
+ols_2 <- lm(pless_health_insurance ~ xenophobia + women + age + married +
+                                        diploma + occupation + unioner + income + year, data = data_reg)
+ols_3 <- lm(pless_family ~ xenophobia + women + age + married +
+                                        diploma + occupation + unioner + income + year, data = data_reg)
+ols_4 <- lm(pless_disabled ~ xenophobia + women + age + married +
+                                        diploma + occupation + unioner + income + year, data = data_reg)
+ols_5 <- lm(pless_dependent ~ xenophobia + women + age + married +
+                                        diploma + occupation + unioner + income + year, data = data_reg)
+ols_6 <- lm(pless_housing ~ xenophobia + women + age + married +
+                                        diploma + occupation + unioner + income + year, data = data_reg)
+ols_7 <- lm(pless_pension ~ xenophobia + women + age + married +
+                                        diploma + occupation + unioner + income + year, data = data_reg)
+
+se_unemployed <- sqrt(diag(vcovHC(ols_1, type = "HC1")))
+se_health_insurance <- sqrt(diag(vcovHC(ols_2, type = "HC1")))
+se_family <- sqrt(diag(vcovHC(ols_3, type = "HC1")))
+se_disabled <- sqrt(diag(vcovHC(ols_4, type = "HC1")))
+se_dependent <- sqrt(diag(vcovHC(ols_5, type = "HC1")))
+se_housing <- sqrt(diag(vcovHC(ols_6, type = "HC1")))
+se_pension <- sqrt(diag(vcovHC(ols_7, type = "HC1")))
+
+stargazer(
+  ols_1, ols_2, ols_3, 
+  ols_4, ols_5, ols_6, ols_7,
+  se = list(se_unemployed, se_health_insurance, se_family, 
+            se_disabled, se_dependent, se_housing, se_pension),
+  type = "text",
+  column.labels = c("Unemployed", "Health Insurance", "Family", 
+                   "Disabled", "Dependent", "Housing", "Pension"),
+  model.numbers = FALSE
+)
+
+# around 41k observations with regression analysis on 2000 - 2013. Now around 55k to 60k which looks weird !
 
 
-ols_unemployed <- lm(pless_unemployed ~ Xenophobia, data = data)
-ols_health_insurance <- lm(pless_health_insurance ~ Xenophobia, data = data)
-ols_family <- lm(pless_family ~ Xenophobia, data = data)
-ols_disabled <- lm(pless_disabled ~ Xenophobia, data = data)
-ols_dependent <- lm(pless_dependent ~ Xenophobia, data = data)
-ols_housing <- lm(pless_housing ~ Xenophobia, data = data)
-ols_pension <- lm(pless_pension ~ Xenophobia, data = data)
 
 
-stargazer(ols_pension, type = "text")
 
 # -------------------- 1st UNIFIED DATASET (2000 - 2013) --------------------
 
