@@ -12,14 +12,17 @@ library(plm)
 library(sandwich)
 library(MASS)
 library(erer)
-library(DescTools)
-library(flexmix)
+library(stringr)
+#library(DescTools)
+#library(flexmix)
 
 #I) Dataset 
 
-# data <- read.csv2("Base 2000 - 2013/Csv/barodrees_unif00_13v8.csv") # Unified dataset 2000 - 2013
+#data00_13 <- read.csv2("Base 2000 - 2013/Csv/barodrees_unif00_13v8.csv") # Unified dataset 2000 - 2013
 
 data <- read_dta("2023/barometre2000_2023_diff.dta") # Unified dataset 2000 - 2023
+
+data00_16 <- read_dta("2016/baro_drees_unif0016_queteletv1.dta") # Unified dataset 2000 - 2016
 
 #II) Variables 
 
@@ -27,17 +30,93 @@ data <- read_dta("2023/barometre2000_2023_diff.dta") # Unified dataset 2000 - 20
 
 # Would you accept a reduction ... in exchange for a reduction in your taxes or payroll taxes ?
 
+freq(data$ps13_ab_1)
+
 data <- data %>%
   mutate(
     pless_health_insurance = ifelse(ps13_ab_1 %in% c(5, 999999999), NA, 5 - ps13_ab_1), # Health Insurance 
     pless_pension          = ifelse(ps13_ab_2 %in% c(5, 999999999), NA, 5 - ps13_ab_2), # Pension allowances
     pless_family           = ifelse(ps13_ab_3 %in% c(5, 999999999), NA, 5 - ps13_ab_3), # Family allowances
     pless_unemployed       = ifelse(ps13_ab_4 %in% c(5, 999999999), NA, 5 - ps13_ab_4), # Unemployment benefits
-    pless_disabled         = ifelse(ps13_ab_5 %in% c(5, 999999999), NA, 5 - ps13_ab_5), # Help for disabled (no obs between 2000 - 2002) / 2004 according DREES 2013
-    pless_dependent        = ifelse(ps13_ab_6 %in% c(5, 999999999), NA, 5 - ps13_ab_6),  # Help for dependent elderly people (no obs between 2000 - 2002) / 2004 according DREES 2013
-    pless_housing          = ifelse(ps13_ab_7 %in% c(5, 999999999), NA, 5 - ps13_ab_7), # Housing benefits (since 2015 accoring to DREES 2023)
+    pless_disabled         = ifelse(ps13_ab_5 %in% c(5, 999999999), NA, 5 - ps13_ab_5), # Help for disabled (since 2004)
+    pless_dependent        = ifelse(ps13_ab_6 %in% c(5, 999999999), NA, 5 - ps13_ab_6),  # Help for dependent elderly people (since 2004)
+    pless_housing          = ifelse(ps13_ab_7 %in% c(5, 999999999), NA, 5 - ps13_ab_7), # Housing benefits (since 2015)
   )                                                             
                                                                 # 1: Not at all vs. 4: Fully Agree
+
+freq(data$pless_health_insurance) # 2017 - 2023 
+table(data$pless_health_insurance, data$annee) # 2017 - 2023 
+
+freq(data00_16$ps13_1)
+
+data00_16 <- data00_16 %>%
+  mutate(
+    pless_health_insurance = ifelse(ps13_1 %in% c(5, 6), NA, 5 - ps13_1), # Health Insurance 
+    pless_pension          = ifelse(ps13_2 %in% c(5, 6), NA, 5 - ps13_2), # Pension allowances
+    pless_family           = ifelse(ps13_3 %in% c(5, 6), NA, 5 - ps13_3), # Family allowances
+    pless_unemployed       = ifelse(ps13_4 %in% c(5, 6), NA, 5 - ps13_4), # Unemployment benefits
+    pless_disabled         = ifelse(ps13_5 %in% c(5, 6), NA, 5 - ps13_5), # Help for disabled (since 2004)
+    pless_dependent        = ifelse(ps13_6 %in% c(5, 6), NA, 5 - ps13_6),  # Help for dependent elderly people (since 2004)
+    pless_housing          = ifelse(ps13_7 %in% c(5, 6), NA, 5 - ps13_7), # Housing benefits (since 2015)
+  )            
+
+freq(data00_16$pless_health_insurance)
+
+
+data00_16$ident <- as.factor(data00_16$ident)
+data00_16$annee <- as.factor(data00_16$annee)
+
+data$ident <- as.factor(data$ident)
+data$annee <- as.factor(data$annee)
+
+head(data$ident, 10)
+head(data00_16$ident, 10)
+
+data00_16 <- data00_16 %>%
+  mutate(ident_harmonized = paste0("ID_", ident))
+
+# Mettre à jour les variables pless_ dans data avec celles de data00_16 pour 2000-2016
+data <- data %>%
+  left_join(
+    data00_16 %>% dplyr::select(ident_harmonized, annee, starts_with("pless_")),
+    by = c("ident" = "ident_harmonized", "annee" = "annee"),
+    suffix = c("", "_update")
+  ) %>%
+  mutate(
+    # Remplacer les valeurs pour la période 2000-2016 si elles existent dans data00_16
+    pless_health_insurance = case_when(
+      !is.na(pless_health_insurance_update) ~ pless_health_insurance_update,
+      TRUE ~ pless_health_insurance
+    ),
+    pless_pension = case_when(
+      !is.na(pless_pension_update) ~ pless_pension_update,
+      TRUE ~ pless_pension
+    ),
+    pless_family = case_when(
+      !is.na(pless_family_update) ~ pless_family_update,
+      TRUE ~ pless_family
+    ),
+    pless_unemployed = case_when(
+      !is.na(pless_unemployed_update) ~ pless_unemployed_update,
+      TRUE ~ pless_unemployed
+    ),
+    pless_disabled = case_when(
+      !is.na(pless_disabled_update) ~ pless_disabled_update,
+      TRUE ~ pless_disabled
+    ),
+    pless_dependent = case_when(
+      !is.na(pless_dependent_update) ~ pless_dependent_update,
+      TRUE ~ pless_dependent
+    ),
+    pless_housing = case_when(
+      !is.na(pless_housing_update) ~ pless_housing_update,
+      TRUE ~ pless_housing
+    )
+  ) %>%
+  # Supprimer les colonnes temporaires
+  dplyr::select(-ends_with("_update"))
+
+table(data$pless_health_insurance, data$annee) # Seems to have worked but high N.As sometimes
 
 # Today, the RSA for a single person who does not work is around XXXX euros a month. Which of these opinions do you agree with most?
 
@@ -45,7 +124,7 @@ freq(data$pe09)
 
 data <- data %>%
   mutate(
-    increase_rsa = case_when(
+    increasersa = case_when(
       pe09 == 1 ~ 3,
       pe09 == 3 ~ 2,
       pe09 == 2 ~ 1,  
