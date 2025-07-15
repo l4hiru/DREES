@@ -145,6 +145,147 @@ data <- data %>%
 
 freq(data$toomuchTforPS)
 
+# Exclusive benefits: 1) Yes i.e only to those who pay payroll taxes (Bismarck) 2) No i.e only poorest one (Beveridge) 3) To everyone without distinction (Universal) cf. Esping-Andersen typology
+
+freq(data$ps01_1) # Health care insurance
+freq(data$ps01_2) # Pensions
+freq(data$ps01_3) # Family
+freq(data$ps01_4) # Unemployment
+
+table(data$ps01_1, data$annee)
+table(data$ps01_2, data$annee)
+table(data$ps01_3, data$annee)
+table(data$ps01_4, data$annee) # Huge increase for conditional unemployment benefits overtime
+
+data <- data %>%
+  mutate(ws_health_insurance = case_when(
+    ps01_1 == 1 ~ "Bismarck",
+    ps01_1 == 2 ~ "Beveridge",
+    ps01_1 == 3 ~ "Universal",
+    ps01_1 == 4 ~ "Mixed",
+    ps01_1 == 999999999 ~ NA_character_,
+    TRUE ~ NA_character_
+  ))
+
+freq(data$ws_health_insurance)
+
+ggplot(
+  data %>% 
+    filter(!is.na(ws_health_insurance)) %>%
+    group_by(annee, ws_health_insurance) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(annee) %>%
+    mutate(pct = n / sum(n)),
+  aes(x = as.factor(annee), y = pct, color = ws_health_insurance, group = ws_health_insurance)
+) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Évolution des préférences pour les systèmes d’assurance maladie",
+    x = "Année",
+    y = "Pourcentage",
+    color = "Type de système"
+  ) +
+  theme_minimal()
+
+data <- data %>%
+  mutate(ws_pension = case_when(
+    ps01_2 == 1 ~ "Bismarck",
+    ps01_2 == 2 ~ "Beveridge",
+    ps01_2 == 3 ~ "Universal",
+    ps01_2 == 4 ~ "Mixed",
+    ps01_2 == 999999999 ~ NA_character_,
+    TRUE ~ NA_character_
+  ))
+
+freq(data$ws_pension)
+
+ggplot(
+  data %>% 
+    filter(!is.na(ws_pension)) %>%
+    group_by(annee, ws_pension) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(annee) %>%
+    mutate(pct = n / sum(n)),
+  aes(x = as.factor(annee), y = pct, color = ws_pension, group = ws_pension)
+) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Évolution des préférences pour les système de retraite",
+    x = "Année",
+    y = "Pourcentage",
+    color = "Type de système"
+  ) +
+  theme_minimal()
+
+data <- data %>%
+  mutate(ws_family = case_when(
+    ps01_3 == 1 ~ "Bismarck",
+    ps01_3 == 2 ~ "Beveridge",
+    ps01_3 == 3 ~ "Universal",
+    ps01_3 == 4 ~ "Mixed",
+    ps01_3 == 999999999 ~ NA_character_,
+    TRUE ~ NA_character_
+  ))
+
+freq(data$ws_family)
+
+ggplot(
+  data %>% 
+    filter(!is.na(ws_family)) %>%
+    group_by(annee, ws_family) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(annee) %>%
+    mutate(pct = n / sum(n)),
+  aes(x = as.factor(annee), y = pct, color = ws_family, group = ws_family)
+) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Évolution des préférences pour les prestations familiales",
+    x = "Année",
+    y = "Pourcentage",
+    color = "Type de système"
+  ) +
+  theme_minimal()
+
+
+data <- data %>%
+  mutate(ws_unemployment = case_when(
+    ps01_4 == 1 ~ "Bismarck",
+    ps01_4 == 2 ~ "Beveridge",
+    ps01_4 == 3 ~ "Universal",
+    ps01_4 == 4 ~ "Mixed",
+    ps01_4 == 999999999 ~ NA_character_,
+    TRUE ~ NA_character_
+  ))
+
+ggplot(
+  data %>% 
+    filter(!is.na(ws_unemployment)) %>%
+    group_by(annee, ws_unemployment) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(annee) %>%
+    mutate(pct = n / sum(n)),
+  aes(x = as.factor(annee), y = pct, color = ws_unemployment, group = ws_unemployment)
+) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Évolution des préférences pour les prestations familiales",
+    x = "Année",
+    y = "Pourcentage",
+    color = "Type de système"
+  ) +
+  theme_minimal()
+
+freq(data$ws_unemployment)
+
 #B) Explanatory variables
 
 freq(data$og08_1)
