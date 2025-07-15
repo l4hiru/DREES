@@ -305,6 +305,32 @@ data$xenophobia <- ifelse(data$xenophobia == 2, 1, 0)
 
 freq(data$xenophobia)
 
+table(data$xenophobia, data$annee)
+
+ggplot(
+  data %>%
+    filter(!is.na(xenophobia)) %>%
+    group_by(annee, xenophobia) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(annee) %>%
+    mutate(pct = n / sum(n)),
+  aes(x = as.factor(annee), y = pct, color = as.factor(xenophobia), group = xenophobia)
+) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_color_manual(
+    values = c("0" = "#1f77b4", "1" = "#d62728"),
+    labels = c("0" = "Non xénophobe", "1" = "Xénophobe"),
+    name = "Attitude"
+  ) +
+  labs(
+    title = "Évolution de la xénophobie déclarée par année",
+    x = "Année",
+    y = "Pourcentage"
+  ) +
+  theme_minimal()
+
 #C) Control variables
 
 # Gender
