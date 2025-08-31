@@ -159,20 +159,27 @@ table(data$ps01_3, data$annee)
 table(data$ps01_4, data$annee) # Huge increase for conditional unemployment benefits overtime
 
 
+library(dplyr)
+
 data <- data %>%
   mutate(
-    # Calculer le score brut
-    raw_score = ifelse(ps01_1 == 1, 1, 0) +
-                ifelse(ps01_2 == 1, 1, 0) +
-                ifelse(ps01_3 == 1, 1, 0) +
-                ifelse(ps01_4 == 1, 1, 0)
+    # Calculer le score brut seulement si les 4 variables sont non manquantes
+    raw_score = ifelse(
+      !is.na(ps01_1) & !is.na(ps01_2) & !is.na(ps01_3) & !is.na(ps01_4),
+      ifelse(ps01_1 == 1, 1, 0) +
+      ifelse(ps01_2 == 1, 1, 0) +
+      ifelse(ps01_3 == 1, 1, 0) +
+      ifelse(ps01_4 == 1, 1, 0),
+      NA_real_
+    )
   ) %>%
-  # Standardiser sur l'ensemble des données
+  # Standardiser sur l'ensemble des données complètes
   mutate(
     exclusive_benefits = as.numeric(scale(raw_score))
   ) %>%
   dplyr::select(-raw_score)
 
+# Vérifier les fréquences
 freq(data$exclusive_benefits)
 
 
