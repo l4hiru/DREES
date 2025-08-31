@@ -13,6 +13,7 @@ library(sandwich)
 library(MASS)
 library(erer)
 library(stringr)
+library(scales)
 #library(DescTools)
 #library(flexmix)
 
@@ -156,6 +157,33 @@ table(data$ps01_1, data$annee)
 table(data$ps01_2, data$annee)
 table(data$ps01_3, data$annee)
 table(data$ps01_4, data$annee) # Huge increase for conditional unemployment benefits overtime
+
+
+data <- data %>%
+  mutate(
+    # Calculer le score brut
+    raw_score = ifelse(ps01_1 == 1, 1, 0) +
+                ifelse(ps01_2 == 1, 1, 0) +
+                ifelse(ps01_3 == 1, 1, 0) +
+                ifelse(ps01_4 == 1, 1, 0)
+  ) %>%
+  # Standardiser sur l'ensemble des données
+  mutate(
+    exclusive_benefits = as.numeric(scale(raw_score))
+  ) %>%
+  dplyr::select(-raw_score)
+
+freq(data$exclusive_benefits)
+
+
+ggplot(data, aes(x = annee, y = exclusive_benefits)) +
+  stat_summary(fun = "mean", geom = "point", size = 3, color = "steelblue") +
+  labs(
+    title = "Évolution des bénéfices exclusifs au cours du temps",
+    x = "Année",
+    y = "Score moyen des bénéfices exclusifs (0-100)"
+  ) +
+  theme_minimal()
 
 data <- data %>%
   mutate(ws_health_insurance = case_when(
