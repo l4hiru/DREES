@@ -19,7 +19,7 @@ library(scales)
 
 #I) Dataset 
 
-#data00_13 <- read.csv2("Base 2000 - 2013/Csv/barodrees_unif00_13v8.csv") # Unified dataset 2000 - 2013
+data00_13 <- read.csv2("Base 2000 - 2013/Csv/barodrees_unif00_13v8.csv") # Unified dataset 2000 - 2013 with departemental location
 
 data <- read_dta("2023/barometre2000_2023_diff.dta") # Unified dataset 2000 - 2023
 
@@ -534,11 +534,21 @@ stargazer(
 
 
 
+
+
+
+
+
+
+
+
+
+
 # -------------------- 1st UNIFIED DATASET (2000 - 2013) --------------------
 
 # In the future, given your level of resources,  would you be prepared to CONTRIBUTE MORE to maintain the level of benefits?
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(
     pmore_health_insurance = ifelse(Q91_1 == 5, NA, 5 - Q91_1), # Health Insurance 
     pmore_pension          = ifelse(Q91_2 == 5, NA, 5 - Q91_2), # Pension allowances
@@ -591,33 +601,33 @@ freq(data$Xenophobia)
 
 # Gender 
 
-freq(data$SEXE)
+freq(data00_13$SEXE)
 
-data$Women <- ifelse(data$SEXE == 2, 1, 0)
+data00_13$Women <- ifelse(data00_13$SEXE == 2, 1, 0)
 
 # Age
 
-freq(data$AGE_BR)
+freq(data00_13$AGE_BR)
 
-data$Age <- as.numeric(data$AGE_BR)
+data00_13$Age <- as.numeric(data00_13$AGE_BR)
 
 # Marital Status
 
-freq(data$SITFAM)
+freq(data00_13$SITFAM)
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(Married = case_when(
     SITFAM == 1 ~ 1,
     SITFAM %in% c(2, 3, 4) ~ 0,
   ))
 
-freq(data$Married)
+freq(data00_13$Married)
 
 # Diploma 
 
-freq(data$Q111)
+freq(data00_13$Q111)
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(Diploma = case_when(
     Q111 %in% c(1, 2) ~ "Low",
     Q111 %in% c(3, 4) ~ "Medium",
@@ -626,13 +636,13 @@ data <- data %>%
   ),
   Diploma = factor(Diploma, levels = c("Low", "Medium", "High")))
 
-freq(data$Diploma)
+freq(data00_13$Diploma)
 
 # Occupation
 
-freq(data$PPI)
+freq(data00_13$PPI)
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(Occupation = case_when(
     PPI %in% c(1) ~ "Farmer",
     PPI %in% c(2) ~ "Craftmen",
@@ -648,13 +658,13 @@ data <- data %>%
   ),
   Occupation = relevel(factor(Occupation), ref = "Worker"))
 
-freq(data$Occupation)
+freq(data00_13$Occupation)
 
 # Employment
 
-freq(data$STATUTPPIbis)
+freq(data00_13$STATUTPPIbis)
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(Employment = case_when(
     STATUTPPIbis == 1 ~ "Public",
     STATUTPPIbis == 2 ~ "Private",
@@ -664,9 +674,9 @@ data <- data %>%
   )) %>%
   mutate(Employment = factor(Employment, levels = c("Public", "Private", "Independent", "Employer")))
 
-freq(data$Employment) #45% de N.A ! 
+freq(data00_13$Employment) #45% de N.A ! 
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(
     Public      = ifelse(STATUTPPIbis == 1, 1, 0),
     Private     = ifelse(STATUTPPIbis == 2, 1, 0),
@@ -674,11 +684,11 @@ data <- data %>%
     Boss        = ifelse(STATUTPPIbis == 4, 1, 0)
   )
 
-freq(data$Public)
+freq(data00_13$Public)
 
 # Unioner
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(Unioner = case_when(
     Q103_1 == 1 ~ 1,
     Q103_1 == 2 ~ 0,
@@ -686,9 +696,9 @@ data <- data %>%
 
 # Income Brackets
 
-freq(data$Q110BIS)
+freq(data00_13$Q110BIS)
 
-data <- data %>%
+data00_13 <- data00_13 %>%
   mutate(IncomeBrackets = ifelse(Q110BIS == 8, NA, Q110BIS)) %>%
   mutate(IncomeBrackets = factor(IncomeBrackets,
                                  levels = 1:7,
@@ -702,13 +712,20 @@ data <- data %>%
                                    "5300€ et plus"))) %>%
   mutate(IncomeBrackets = relevel(IncomeBrackets, ref = "Moins de 1000€"))
 
-freq(data$IncomeBrackets)
+freq(data00_13$IncomeBrackets)
 
 # Year 
 
-data$Year <- as.factor(data$ANNEE)
+data00_13$Year <- as.factor(data00_13$ANNEE)
 
-freq(data$Year)
+freq(data00_13$Year)
+
+# Departement
+
+freq(data00_13$DEPT) # Only data from 2000 to 2006 (with a break in 2003) and 2013
+
+table(data00_13$DEPT, data00_13$Year)
+
 
 #III) Regression Analysis$
 
