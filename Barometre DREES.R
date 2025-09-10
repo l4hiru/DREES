@@ -14,16 +14,28 @@ library(MASS)
 library(erer)
 library(stringr)
 library(scales)
-#library(DescTools)
-#library(flexmix)
+library(fixest)
 
-#I) Dataset 
+# I) Dataset 
+
+# A) DREES Surveys 
 
 data00_13 <- read.csv2("Base 2000 - 2013/Csv/barodrees_unif00_13v8.csv") # Unified dataset 2000 - 2013 with departemental location
 
 data <- read_dta("2023/barometre2000_2023_diff.dta") # Unified dataset 2000 - 2023
 
 data00_16 <- read_dta("2016/baro_drees_unif0016_queteletv1.dta") # Unified dataset 2000 - 2016
+
+# B) Departemental controls 
+
+immi_data <- read_parquet("C:/Users/srimling/Documents/Positron/CREDOC/immi_data.parquet")
+age_data <- read_parquet("C:/Users/srimling/Documents/Positron/CREDOC/age_data_dep.parquet")
+csp_data <- read_parquet("C:/Users/srimling/Documents/Positron/CREDOC/csp_data_dep.parquet")
+diploma_data <- read_parquet("C:/Users/srimling/Documents/Positron/CREDOC/diploma_data_dep.parquet")
+income_data <- read_parquet("C:/Users/srimling/Documents/Positron/CREDOC/income_data_dep.parquet")
+data_region <- read.csv("C:/Users/srimling/Documents/Positron/CREDOC/departements-region.csv", sep = ",", stringsAsFactors = FALSE)
+female_data <- read_parquet("C:/Users/srimling/Documents/Positron/CREDOC/dep_female_data.parquet")
+pop_data <- read_parquet("C:/Users/srimling/Documents/Positron/CREDOC/dep_pop_data.parquet")           # Weighting variable 
 
 #II) Variables 
 
@@ -537,13 +549,6 @@ stargazer(
 
 
 
-
-
-
-
-
-
-
 # -------------------- 1st UNIFIED DATASET (2000 - 2013) --------------------
 
 # In the future, given your level of resources,  would you be prepared to CONTRIBUTE MORE to maintain the level of benefits?
@@ -722,9 +727,170 @@ freq(data00_13$Year)
 
 # Departement
 
-freq(data00_13$DEPT) # Only data from 2000 to 2006 (with a break in 2003) and 2013
+table(data00_13$DEPT, data00_13$Year) # Only data from 2000 to 2006 (with a break in 2003) and 2013
+
+data00_13 <- subset(data00_13, Year %in% c(2000:2006, 2013))
+data00_13$Year <- droplevels(data00_13$Year)
 
 table(data00_13$DEPT, data00_13$Year)
+
+data00_13$Departement <- as.factor(data00_13$DEPT)
+data00_13$Departement <- sprintf("%02d", as.numeric(as.character(data00_13$Departement)))
+
+freq(data00_13$Departement)
+
+
+# D) Merging with control variables
+
+data00_13 <- data00_13 %>%
+  dplyr::select(
+    IDENT, pmore_health_insurance, pmore_pension, pmore_family, pmore_unemployed,
+    pmore_disabled, pmore_dependent, pmore_disabled, Women, Age, Married, Diploma,
+    Occupation, Unioner, IncomeBrackets, Year, Departement
+  )
+
+
+immi_data$dep <- as.factor(immi_data$dep)
+age_data$dep <- as.factor(age_data$dep)
+csp_data$dep <- as.factor(csp_data$dep)
+diploma_data$dep <- as.factor(diploma_data$dep)
+income_data$dep <- as.factor(income_data$dep)
+
+# Immigration 
+
+immi_data <- immi_data %>%               # conversion from wide to long panel format
+  pivot_longer(
+    cols = starts_with("petranger"),
+    names_to = "Year",
+    names_prefix = "petranger",
+    values_to = "ShareImmi"
+  ) %>%
+  mutate(
+    Year = as.factor(Year)
+  )
+
+data00_13 <- data00_13 %>%
+  mutate(Year = as.integer(as.character(Year))) %>%
+  left_join(
+    immi_data %>%
+      mutate(
+        Year = as.integer(as.character(Year)),
+        Year_lag = Year + 1                            # t-1 to have a 1 year lagged value
+      ) %>%
+      dplyr::select(dep, Year_lag, ShareImmi),
+    by = c("Departement" = "dep", "Year" = "Year_lag")
+  ) %>%
+  mutate(Year = as.factor(Year))
+
+# Occupational share
+
+data00_13 <- data00_13 %>%
+  mutate(Year = as.integer(as.character(Year))) %>%
+  left_join(
+    csp_data %>%
+      mutate(
+        Year = as.integer(as.character(Year)),
+        Year_lag = Year + 1
+      ) %>%
+      dplyr::select(dep, Year_lag, part_agri, part_indp, part_cadr, part_pint, part_empl, part_ouvr, part_chom),
+    by = c("Departement" = "dep", "Year" = "Year_lag")
+  )
+
+# Income 
+
+data00_13 <- data00_13 %>%
+  mutate(Year = as.integer(as.character(Year))) %>%
+  left_join(
+    income_data %>%
+      mutate(
+        Year = as.integer(as.character(Year)),
+        Year_lag = Year + 1
+      ) %>%
+      dplyr::select(dep, Year_lag, RevMoy),
+    by = c("Departement" = "dep", "Year" = "Year_lag")
+  ) %>%
+  mutate(Year = as.factor(Year))  
+
+# High dipp 
+
+data00_13 <- data00_13 %>%
+  mutate(Year = as.integer(as.character(Year))) %>%
+  left_join(
+    diploma_data %>%
+      mutate(
+        Year = as.integer(as.character(Year)),
+        Year_lag = Year + 1
+      ) %>%
+      dplyr::select(dep, Year_lag, partbac),
+    by = c("Departement" = "dep", "Year" = "Year_lag")
+  )
+
+data00_13 <- data00_13 %>%
+  mutate(Year = as.integer(as.character(Year))) %>%
+  left_join(
+    female_data %>%
+      mutate(
+        Year = as.integer(as.character(Year)),
+        Year_lag = Year + 1
+      ) %>%
+      dplyr::select(dep, Year_lag, FemaleShare),
+    by = c("Departement" = "dep", "Year" = "Year_lag")
+  ) %>%
+  mutate(Year = as.factor(Year))
+
+### Analysis 
+
+colnames(data00_13)
+
+data00_13 <- data00_13 %>%
+  mutate(across(ShareImmi:FemaleShare, ~ .x / 100))
+
+freq(data00_13$pmore_unemployed)
+
+unemployment <- feols(pmore_unemployed ~ Women + Age + Married + Diploma + IncomeBrackets
+                      + Unioner + ShareImmi + part_agri + part_indp + part_cadr + part_empl
+                      + part_pint + part_ouvr + part_chom + partbac + FemaleShare + log(RevMoy)
+                      + factor(Year) + factor(Departement), data = data00_13)
+
+health <- feols(pmore_health_insurance ~ Women + Age + Married + Diploma + IncomeBrackets
+                      + Unioner + ShareImmi + part_agri + part_indp + part_cadr + part_empl
+                      + part_pint + part_ouvr + part_chom + partbac + FemaleShare + log(RevMoy)
+                      + factor(Year) + factor(Departement), data = data00_13)
+
+pension <- feols(pmore_pension ~ Women + Age + Married + Diploma + IncomeBrackets
+                      + Unioner + ShareImmi + part_agri + part_indp + part_cadr + part_empl
+                      + part_pint + part_ouvr + part_chom + partbac + FemaleShare + log(RevMoy)
+                      + factor(Year) + factor(Departement), data = data00_13)
+
+family <- feols(pmore_family ~ Women + Age + Married + Diploma + IncomeBrackets
+                      + Unioner + ShareImmi + part_agri + part_indp + part_cadr + part_empl
+                      + part_pint + part_ouvr + part_chom + partbac + FemaleShare + log(RevMoy)
+                      + factor(Year) + factor(Departement), data = data00_13)
+
+etable(health, pension, family, unemployment, keep = "ShareImmi")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #III) Regression Analysis$
